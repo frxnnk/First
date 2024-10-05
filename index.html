@@ -79,6 +79,7 @@ h1, h2 {
     background-color: rgba(0,0,0,0.1);
     padding: 10px;
     border-radius: 10px;
+    cursor: pointer;
 }
 #game-container {
     width: 100%;
@@ -113,11 +114,23 @@ h1, h2 {
     font-size: 24px;
     color: #fff;
 }
+.toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #333;
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 5px;
+    display: none;
+    z-index: 1000;
+}
 </style>
 </head>
 <body>
 <div class="navbar">
-    <a href="https://pump.fun/BMVwZnEVV8R6sG7KxJsvhf6Xxd1n3CQPWLT18GEt" class="buy-button animate__animated animate__pulse animate__infinite">BUY $FIRST NOW!</a>
+    <a href="https://pump.fun/BMVwZnEVV8R6sG7KxJsvhf6Xxd1n3CQPWLT18GEtpump" target="_blank" class="buy-button animate__animated animate__pulse animate__infinite">BUY $FIRST NOW!</a>
 </div>
 
 <div class="container" style="margin-top: 70px;">
@@ -125,7 +138,7 @@ h1, h2 {
         <iframe id="videoPlayer" src="https://www.youtube.com/embed/lbJxuxIpc_g?autoplay=1&controls=0&showinfo=0&rel=0&loop=1&playlist=lbJxuxIpc_g" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
     </div>
     
-    <div class="contract-address animate__animated animate__fadeInUp">
+    <div class="contract-address animate__animated animate__fadeInUp" id="contractAddress">
         CA: BMVwZnEVV8R6sG7KxJsvhf6Xxd1n3CQPWLT18GEtpump
     </div>
     
@@ -140,6 +153,8 @@ h1, h2 {
         <div id="score">Score: 0</div>
     </div>
 </div>
+
+<div class="toast" id="toast">Contract address copied!</div>
 
 <script>
 // Halving countdown
@@ -161,6 +176,18 @@ const countdownTimer = setInterval(function() {
         document.getElementById("halvingCountdown").innerHTML = "HALVING HAPPENED! Y U NO LAMBO YET?";
     }
 }, 1000);
+
+// Copy contract address
+document.getElementById('contractAddress').addEventListener('click', function() {
+    const contractAddress = "BMVwZnEVV8R6sG7KxJsvhf6Xxd1n3CQPWLT18GEtpump";
+    navigator.clipboard.writeText(contractAddress).then(function() {
+        const toast = document.getElementById('toast');
+        toast.style.display = 'block';
+        setTimeout(() => {
+            toast.style.display = 'none';
+        }, 3000);
+    });
+});
 
 // Mini-game
 const gameContainer = document.getElementById('game-container');

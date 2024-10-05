@@ -83,7 +83,7 @@ h1, h2 {
 }
 #game-container {
     width: 100%;
-    height: 300px;
+    height: 400px;
     background-color: #000;
     position: relative;
     overflow: hidden;
@@ -92,28 +92,36 @@ h1, h2 {
 #player {
     width: 50px;
     height: 50px;
-    background-color: #ff0;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🚀</text></svg>');
+    background-size: contain;
     position: absolute;
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    border-radius: 25px;
 }
 .coin {
-    width: 30px;
-    height: 30px;
-    background-color: #ffd700;
-    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💰</text></svg>');
+    background-size: contain;
     position: absolute;
-    top: -30px;
+    top: -40px;
 }
-#score {
+.obstacle {
+    width: 50px;
+    height: 50px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💩</text></svg>');
+    background-size: contain;
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: -50px;
+}
+#score, #highscore {
+    position: absolute;
     font-size: 24px;
     color: #fff;
 }
+#score { top: 10px; left: 10px; }
+#highscore { top: 10px; right: 10px; }
 .toast {
     position: fixed;
     bottom: 20px;
@@ -125,6 +133,27 @@ h1, h2 {
     border-radius: 5px;
     display: none;
     z-index: 1000;
+}
+#game-over {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    display: none;
+}
+#restart-btn {
+    background-color: #00ff00;
+    color: #000;
+    border: none;
+    padding: 10px 20px;
+    margin-top: 10px;
+    cursor: pointer;
+    border-radius: 5px;
 }
 </style>
 </head>
@@ -147,10 +176,16 @@ h1, h2 {
     <h2 class="animate__animated animate__bounceIn">Why $FIRST? Cuz Gainz, Bro!</h2>
     <p class="animate__animated animate__fadeIn">Yo, listen up! $FIRST ain't your average shitcoin. It's the memeiest, dankest, most YOLO-worthy token this side of the blockchain! We're not here to make sense, we're here to make you rich AF! 🚀🌙💰</p>
     
-    <h2 class="animate__animated animate__bounceIn">$FIRST Coin Catcher</h2>
+    <h2 class="animate__animated animate__bounceIn">$FIRST To The Moon!</h2>
     <div id="game-container" class="animate__animated animate__zoomIn">
         <div id="player"></div>
         <div id="score">Score: 0</div>
+        <div id="highscore">Highscore: 0</div>
+        <div id="game-over">
+            <h3>Game Over!</h3>
+            <p>Your Score: <span id="final-score"></span></p>
+            <button id="restart-btn">Play Again</button>
+        </div>
     </div>
 </div>
 
@@ -189,69 +224,123 @@ document.getElementById('contractAddress').addEventListener('click', function() 
     });
 });
 
-// Mini-game
+// Improved Mini-game
 const gameContainer = document.getElementById('game-container');
 const player = document.getElementById('player');
 const scoreElement = document.getElementById('score');
+const highscoreElement = document.getElementById('highscore');
+const gameOverScreen = document.getElementById('game-over');
+const finalScoreElement = document.getElementById('final-score');
+const restartBtn = document.getElementById('restart-btn');
 let score = 0;
+let highscore = 0;
+let gameActive = true;
+let gameSpeed = 2;
+let coinInterval, obstacleInterval;
 
 function movePlayer(x) {
     const gameRect = gameContainer.getBoundingClientRect();
     const playerRect = player.getBoundingClientRect();
     const maxX = gameRect.width - playerRect.width;
-    x = Math.max(0, Math.min(x, maxX));
+    x = Math.max(0, Math.min(x - gameRect.left - playerRect.width / 2, maxX));
     player.style.left = x + 'px';
 }
 
 gameContainer.addEventListener('mousemove', (e) => {
-    const gameRect = gameContainer.getBoundingClientRect();
-    movePlayer(e.clientX - gameRect.left - 25);
+    if (gameActive) movePlayer(e.clientX);
 });
 
 gameContainer.addEventListener('touchmove', (e) => {
     e.preventDefault();
-    const gameRect = gameContainer.getBoundingClientRect();
-    movePlayer(e.touches[0].clientX - gameRect.left - 25);
+    if (gameActive) movePlayer(e.touches[0].clientX);
 });
 
-function createCoin() {
-    const coin = document.createElement('div');
-    coin.classList.add('coin');
-    coin.style.left = Math.random() * (gameContainer.offsetWidth - 30) + 'px';
-    gameContainer.appendChild(coin);
+function createGameObject(className) {
+    const object = document.createElement('div');
+    object.classList.add(className);
+    object.style.left = Math.random() * (gameContainer.offsetWidth - 40) + 'px';
+    gameContainer.appendChild(object);
+    return object;
+}
 
-    let pos = -30;
-    const fall = setInterval(() => {
+function moveGameObject(object) {
+    let pos = -40;
+    const move = setInterval(() => {
         if (pos >= gameContainer.offsetHeight) {
-            clearInterval(fall);
-            if (gameContainer.contains(coin)) {
-                gameContainer.removeChild(coin);
+            clearInterval(move);
+            if (gameContainer.contains(object)) {
+                gameContainer.removeChild(object);
             }
         } else {
-            pos += 2;
-            coin.style.top = pos + 'px';
-            checkCollision(coin);
+            pos += gameSpeed;
+            object.style.top = pos + 'px';
+            checkCollision(object);
         }
     }, 20);
 }
 
-function checkCollision(coin) {
+function checkCollision(object) {
     const playerRect = player.getBoundingClientRect();
-    const coinRect = coin.getBoundingClientRect();
+    const objectRect = object.getBoundingClientRect();
 
-    if (playerRect.left < coinRect.right &&
-        playerRect.right > coinRect.left &&
-        playerRect.top < coinRect.bottom &&
-        playerRect.bottom > coinRect.top) {
-        if (gameContainer.contains(coin)) {
-            gameContainer.removeChild(coin);
-            score++;
-            scoreElement.textContent = `Score: ${score}`;
+    if (playerRect.left < objectRect.right &&
+        playerRect.right > objectRect.left &&
+        playerRect.top < objectRect.bottom &&
+        playerRect.bottom > objectRect.top) {
+        if (object.classList.contains('coin')) {
+            if (gameContainer.contains(object)) {
+                gameContainer.removeChild(object);
+                score++;
+                scoreElement.textContent = `Score: ${score}`;
+                gameSpeed += 0.1; // Increase game speed
+            }
+        } else if (object.classList.contains('obstacle')) {
+            gameOver();
         }
     }
 }
 
-setInterval(createCoin, 1000);
+function gameOver() {
+    gameActive = false;
+    clearInterval(coinInterval);
+    clearInterval(obstacleInterval);
+    finalScoreElement.textContent = score;
+    gameOverScreen.style.display = 'block';
+    if (score > highscore) {
+        highscore = score;
+        highscoreElement.textContent = `Highscore: ${highscore}`;
+    }
+}
+
+function startGame() {
+    score = 0;
+    gameSpeed = 2;
+    gameActive = true;
+    scoreElement.textContent = 'Score: 0';
+    gameOverScreen.style.display = 'none';
+    
+    // Remove all existing coins and obstacles
+    document.querySelectorAll('.coin, .obstacle').forEach(el => el.remove());
+
+    coinInterval = setInterval(() => {
+        if (gameActive) {
+            const coin = createGameObject('coin');
+            moveGameObject(coin);
+        }
+    }, 1000);
+
+    obstacleInterval = setInterval(() => {
+        if (gameActive) {
+            const obstacle = createGameObject('obstacle');
+            moveGameObject(obstacle);
+        }
+    }, 2000);
+}
+
+restartBtn.addEventListener('click', startGame);
+
+// Start the game initially
+startGame();
 
 // Easter egg
 let clickCount = 0;
